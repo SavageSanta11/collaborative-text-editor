@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from "react"
 import Quill from "quill"
 import "quill/dist/quill.snow.css"
-import { io } from 'socket.io-client'
+import { io } from "socket.io-client"
 import { useParams } from "react-router-dom"
 
 const SAVE_INTERVAL_MS = 2000
@@ -39,14 +39,14 @@ export default function TextEditor() {
       quill.enable() // disable text editor until the document is loaded
     })
 
-    socket.emit("get-document", documentId) // this will attach us to the room associated with that document ID - server will send that doc back kto us
+    socket.emit("get-document", documentId) // this will attach us to the room associated with that document ID - server will send that doc back to us
   }, [socket, quill, documentId]) // when socket or id or quill changes
 
   useEffect(() => {
     if (socket == null || quill == null) return
 
     const interval = setInterval(() => {
-      socket.emit("save-document", quill.getContents())
+      socket.emit("save-document", quill.getContents()) // save the document every few seconds
     }, SAVE_INTERVAL_MS)
 
     return () => {
@@ -66,32 +66,34 @@ export default function TextEditor() {
       socket.off("receive-changes", handler)
     }
   }, [socket, quill])
+
   useEffect(() => {
     if (socket == null || quill == null) return
 
-    const handler = quill.on('text-change', (delta, oldDelta, source) => {
-      if (source !== 'user') return //if not then changes were made by our API 
+    const handler = (delta, oldDelta, source) => {
+      if (source !== "user") return // if not then changes were made by our API, programmatically
       socket.emit("send-changes", delta)
-    })
+    }
+    quill.on("text-change", handler)
+
     return () => {
-      quill.off('text-change', handler) // turn off event handler when no longer needed
+      quill.off("text-change", handler) // turn off event handler when no longer needed
     }
   }, [socket, quill])
 
-
-  const wrapperRef = useCallback((wrapper) => {
+  const wrapperRef = useCallback(wrapper => {
     if (wrapper == null) return
+
     wrapper.innerHTML = ""
-    const editor = document.createElement('div')
-    wrapper.current.append(editor)
-    const q = new Quill('#container', { theme: "snow" })
+    const editor = document.createElement("div")
+    wrapper.append(editor)
+    const q = new Quill(editor, {
+      theme: "snow",
+      modules: { toolbar: TOOLBAR_OPTIONS },
+    })
     q.disable()
     q.setText("Loading...")
     setQuill(q)
-
-  }, [])  // so that this component is only rendered once, at runtime
-  return (
-    <div className="container" ref={wrapperRef}>
-    </div>
-  )
+  }, []) // so that this component is only rendered once, at runtime
+  return <div className="container" ref={wrapperRef}></div>
 }
